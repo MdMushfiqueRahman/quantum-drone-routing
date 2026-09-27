@@ -10,7 +10,10 @@ waypoints = [
     {"name": "E", "x": 3, "y": 8, "reward": 9}
 ]
 
-start = {"name": "Start", "x": 0, "y": 0}
+start = {"name": "Start", 
+         "x": 0, 
+         "y": 0,
+         "reward": 0}
 
 battery_budget = 25
 
@@ -57,3 +60,42 @@ for waypoint in waypoints:
         "| Reward:",
         waypoint["reward"]
     )
+
+
+#Calculate the energy required to travel along a route
+def calculate_route_energy(route):
+    total_energy = 0
+    current_point = start
+
+    for waypoint in route:
+        energy = calculate_energy(current_point, waypoint)
+        total_energy = total_energy + energy
+        current_point = waypoint
+
+    return total_energy
+
+
+
+test_route = [
+    waypoints[0],
+    waypoints[3],
+    waypoints[1]
+]
+
+
+
+route_energy = calculate_route_energy(test_route)
+
+
+
+print("\nTest Route: Start -> A -> D -> B")
+print("Total Route Energy:", round(route_energy, 2))
+
+#Calculate the reward for a route
+def calculate_route_reward(route):
+    total_reward = 0
+
+    for waypoint in route:
+        total_reward = total_reward + waypoint["reward"]
+
+    return total_reward
