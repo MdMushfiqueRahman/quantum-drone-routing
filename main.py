@@ -1,4 +1,5 @@
 import math
+import itertools
 import matplotlib.pyplot as plt
 
 #Define the waypoints
@@ -10,8 +11,8 @@ waypoints = [
     {"name": "E", "x": 3, "y": 8, "reward": 9}
 ]
 
-start = {"name": "Start", 
-         "x": 0, 
+start = {"name": "Start",
+         "x": 0,
          "y": 0,
          "reward": 0}
 
@@ -33,6 +34,9 @@ print("Distance from Start to A:", distance_to_a)
 
 #Define the energy rate
 energy_rate = 1.5
+
+takeoff_energy = 1.0
+landing_energy = 0.5
 
 #Calculate the energy required to travel between two points
 def calculate_energy(point1, point2):
@@ -61,20 +65,26 @@ for waypoint in waypoints:
         waypoint["reward"]
     )
 
-
 #Calculate the energy required to travel along a route
 def calculate_route_energy(route):
     total_energy = 0
     current_point = start
+
+    #Add the takeoff energy once at the beginning
+    total_energy = total_energy + takeoff_energy
 
     for waypoint in route:
         energy = calculate_energy(current_point, waypoint)
         total_energy = total_energy + energy
         current_point = waypoint
 
+    #Add the energy cost to return from the final waypoint back to Start
+    total_energy = total_energy + calculate_energy(current_point, start)
+
+    #Add the landing energy once at the end
+    total_energy = total_energy + landing_energy
+
     return total_energy
-
-
 
 test_route = [
     waypoints[0],
@@ -82,12 +92,9 @@ test_route = [
     waypoints[1]
 ]
 
-
-
 route_energy = calculate_route_energy(test_route)
 
-
-
+#Display the results
 print("\nTest Route: Start -> A -> D -> B")
 print("Total Route Energy:", round(route_energy, 2))
 
@@ -99,3 +106,57 @@ def calculate_route_reward(route):
         total_reward = total_reward + waypoint["reward"]
 
     return total_reward
+
+#Check if the route is valid
+if route_energy <= battery_budget:
+    print("Route Status: Valid")
+else:
+    print("Route Status: Invalid")
+
+#Display the possible 2-waypoint combinations using itertools.combinations
+print("\nPossible 2-waypoint combinations:")
+
+#Calculate the reward for each 2-waypoint combination
+for combo in itertools.combinations(waypoints, 2):
+    reward = calculate_route_reward(combo)
+
+    print(
+        combo[0]["name"],
+        "->",
+        combo[1]["name"],
+        "| Reward:",
+        reward
+    )
+
+best_route = None
+best_reward = -1
+best_energy = 0
+
+#Test routes with different numbers of waypoints
+for route_length in range(1, len(waypoints) + 1):
+
+    for route in itertools.permutations(waypoints, route_length):
+
+        energy = calculate_route_energy(route)
+        reward = calculate_route_reward(route)
+
+        #Check if the route is valid and has the highest reward
+        #(break ties by preferring the route with lower energy)
+        if energy <= battery_budget and (
+            reward > best_reward
+            or (reward == best_reward and energy < best_energy)
+        ):
+            best_route = route
+            best_reward = reward
+            best_energy = energy
+
+#Display the best route
+print("\nBest Route:")
+
+best_route_names = " -> ".join(
+    waypoint["name"] for waypoint in best_route
+)
+
+print("Route: Start ->", best_route_names, "-> Start")
+print("Energy:", round(best_energy, 2))
+print("Reward:", best_reward)
