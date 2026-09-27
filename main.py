@@ -1,6 +1,10 @@
 import math
 import itertools
+import matplotlib
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
+import csv
+import os
 
 #Define the waypoints
 waypoints = [
@@ -160,3 +164,55 @@ best_route_names = " -> ".join(
 print("Route: Start ->", best_route_names, "-> Start")
 print("Energy:", round(best_energy, 2))
 print("Reward:", best_reward)
+
+#Write the results to a CSV file
+#Only write the header the first time (when results.csv does not exist yet)
+file_exists = os.path.exists("results.csv")
+
+with open("results.csv", "a", newline="") as file:
+    writer = csv.writer(file)
+
+    if not file_exists:
+        writer.writerow([
+            "Solver",
+            "Battery Budget",
+            "Best Route",
+            "Energy",
+            "Reward"
+        ])
+
+    writer.writerow([
+        "classical_bruteforce",
+        battery_budget,
+        "Start -> " + best_route_names + " -> Start",
+        round(best_energy, 2),
+        best_reward
+    ])
+
+#Plot the start point
+plt.scatter(start["x"], start["y"])
+plt.text(start["x"], start["y"], "Start")
+
+#Plot all waypoints
+for waypoint in waypoints:
+    plt.scatter(waypoint["x"], waypoint["y"])
+    plt.text(waypoint["x"], waypoint["y"], waypoint["name"])
+
+#Plot the best route: Start -> waypoints -> Start
+route_points = [start] + list(best_route) + [start]
+
+route_x = [point["x"] for point in route_points]
+route_y = [point["y"] for point in route_points]
+
+plt.plot(route_x, route_y)
+
+plt.xlabel("X Coordinate")
+plt.ylabel("Y Coordinate")
+plt.title(
+    f"Best Route | Energy: {best_energy:.2f} | "
+    f"Reward: {best_reward} | Battery: {battery_budget}"
+)
+plt.grid()
+
+plt.savefig("best_route.png", dpi=300, bbox_inches="tight")
+plt.show()

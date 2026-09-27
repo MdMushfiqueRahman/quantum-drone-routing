@@ -1,0 +1,2 @@
+Solver,Battery Budget,Best Route,Energy,Reward
+classical_bruteforce,25,Start -> A -> D -> Start,22.74,15
