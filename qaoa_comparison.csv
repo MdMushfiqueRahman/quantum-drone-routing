@@ -1,0 +1,4 @@
+Solver,Selected Waypoints,Scaled Energy,Battery Budget,Reward,QUBO Cost,Constraint Valid
+Exact brute-force,"A, B",183,250,20,-1250020,Valid
+QAOA p=1,"B, D",220,250,19,-1250019.0,Valid
+QAOA p=2,B,129,250,12,-1250012.0,Valid

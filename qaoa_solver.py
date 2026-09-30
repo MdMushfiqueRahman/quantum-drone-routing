@@ -3,7 +3,18 @@ from qiskit_optimization import QuadraticProgram
 from qiskit_optimization.algorithms import MinimumEigenOptimizer
 from qiskit_optimization.minimum_eigensolvers import QAOA
 from qiskit_optimization.optimizers import COBYLA
-from qubo_model import variables, qubo
+from qubo_model import (
+    variables,
+    qubo,
+    waypoint_energy,
+    waypoint_rewards,
+    battery_budget,
+    best_state,
+    best_cost
+)
+import numpy as np
+import csv
+
 
 print("Loaded QUBO variables:", len(variables))
 print("Loaded QUBO terms:", len(qubo))
@@ -34,66 +45,122 @@ qp.minimize(
 print("\nQiskit QuadraticProgram created successfully")
 print("Number of Qiskit variables:", qp.get_num_vars())
 
-#Create a StatevectorSampler
-sampler = StatevectorSampler(seed=42)
-print("StatevectorSampler ready")
 
-# Create the quantum sampler
-sampler = StatevectorSampler(seed=42)
+# Turn a state dictionary into a clean, human-readable result
+def summarize_state(state, qubo_cost):
+    # Get the selected real waypoints (ignore the slack variables)
+    selected_waypoints = [
+        waypoint
+        for waypoint in waypoint_rewards
+        if state[waypoint] == 1
+    ]
 
-# Classical optimizer used to tune QAOA parameters
-optimizer = COBYLA(maxiter=100)
+    # Calculate the scaled energy and total reward
+    selected_energy = sum(
+        waypoint_energy[w] for w in selected_waypoints
+    )
+    selected_reward = sum(
+        waypoint_rewards[w] for w in selected_waypoints
+    )
 
-# Create QAOA
-qaoa = QAOA(
-    sampler=sampler,
-    optimizer=optimizer,
-    reps=1
-)
+    # Check the battery budget constraint
+    constraint_valid = selected_energy <= battery_budget
 
-# Connect QAOA to the QUBO optimization problem
-qaoa_optimizer = MinimumEigenOptimizer(qaoa)
+    return (
+        selected_waypoints,
+        selected_energy,
+        selected_reward,
+        qubo_cost,
+        constraint_valid
+    )
 
-print("\nRunning QAOA...")
 
-# Solve the problem
-result = qaoa_optimizer.solve(qp)
+# Run QAOA with a chosen number of repetitions (p) and return the result
+def run_qaoa(reps):
+    # Create the quantum sampler and the classical parameter optimizer
+    sampler = StatevectorSampler(seed=42)
+    optimizer = COBYLA(maxiter=100)
 
-print("\nQAOA Result:")
-print(result)
+    # Two parameters (beta and gamma) per repetition, all starting at 0.5
+    initial_point = np.full(2 * reps, 0.5)
 
-# Extract QAOA waypoint decisions
-qaoa_state = {
-    variables[i]: int(round(result.x[i]))
-    for i in range(len(variables))
-}
+    # Create QAOA with the requested number of repetitions
+    qaoa = QAOA(
+        sampler=sampler,
+        optimizer=optimizer,
+        reps=reps,
+        initial_point=initial_point
+    )
 
-# Get selected waypoints
-selected_waypoints = [
-    waypoint
-    for waypoint in ["A", "B", "C", "D", "E"]
-    if qaoa_state[waypoint] == 1
+    # Connect QAOA to the QUBO problem and solve it
+    qaoa_optimizer = MinimumEigenOptimizer(qaoa)
+    result = qaoa_optimizer.solve(qp)
+
+    # Convert the QAOA bit decisions into a state dictionary
+    qaoa_state = {
+        variables[i]: int(round(result.x[i]))
+        for i in range(len(variables))
+    }
+
+    return summarize_state(qaoa_state, result.fval)
+
+
+# 1. Exact brute-force QUBO result (reuse best_state and best_cost)
+exact_result = summarize_state(best_state, best_cost)
+
+# 2. QAOA with reps=1 and 3. QAOA with reps=2
+print("\nRunning QAOA (p=1)...")
+qaoa_p1_result = run_qaoa(1)
+
+print("Running QAOA (p=2)...")
+qaoa_p2_result = run_qaoa(2)
+
+# Collect all results so we can print and save them the same way
+comparison = [
+    ("Exact brute-force", exact_result),
+    ("QAOA p=1", qaoa_p1_result),
+    ("QAOA p=2", qaoa_p2_result)
 ]
 
-# Calculate energy and reward
-from qubo_model import waypoint_energy, waypoint_rewards, battery_budget
+# Print a clean comparison
+print("\n=== Solver Comparison ===")
 
-selected_energy = sum(
-    waypoint_energy[w] for w in selected_waypoints
-)
+for solver_name, result in comparison:
+    selected_waypoints, energy, reward, cost, valid = result
 
-selected_reward = sum(
-    waypoint_rewards[w] for w in selected_waypoints
-)
+    print("\nSolver:", solver_name)
+    print("  Selected Waypoints:", selected_waypoints)
+    print("  Scaled Energy:", energy)
+    print("  Battery Budget:", battery_budget)
+    print("  Reward:", reward)
+    print("  QUBO Cost:", cost)
+    print("  Constraint Valid:", "Valid" if valid else "Invalid")
 
-print("\nHuman-Readable QAOA Result:")
-print("Selected Waypoints:", selected_waypoints)
-print("Scaled Energy:", selected_energy)
-print("Scaled Battery Budget:", battery_budget)
-print("Total Reward:", selected_reward)
-print("QUBO Cost:", result.fval)
+# Save the comparison to a CSV file
+with open("qaoa_comparison.csv", "w", newline="") as file:
+    writer = csv.writer(file)
 
-if selected_energy <= battery_budget:
-    print("Constraint Status: Valid")
-else:
-    print("Constraint Status: Invalid")
+    writer.writerow([
+        "Solver",
+        "Selected Waypoints",
+        "Scaled Energy",
+        "Battery Budget",
+        "Reward",
+        "QUBO Cost",
+        "Constraint Valid"
+    ])
+
+    for solver_name, result in comparison:
+        selected_waypoints, energy, reward, cost, valid = result
+
+        writer.writerow([
+            solver_name,
+            ", ".join(selected_waypoints),
+            energy,
+            battery_budget,
+            reward,
+            cost,
+            "Valid" if valid else "Invalid"
+        ])
+
+print("\nComparison saved to qaoa_comparison.csv")
