@@ -82,7 +82,7 @@ Reward: 15
 The visualization is stored in:
 
 ```text
-best_route.png
+initial_prototype/best_route.png
 ```
 
 This prototype was useful for developing the first energy model and solver workflow, but its original QUBO formulation focused mainly on waypoint selection rather than complete route continuity.
@@ -452,25 +452,29 @@ Valid: True
 ```text
 quantum-drone-routing/
 |
-|-- main.py
-|   Initial classical five-waypoint routing prototype
-|
-|-- qubo_model.py
-|   Initial waypoint-selection QUBO prototype
-|
-|-- qaoa_solver.py
-|   Initial QAOA waypoint-selection experiment
-|
-|-- best_route.png
-|   Initial classical route visualization
-|
-|-- results.csv
-|   Classical experiment output
-|
-|-- qaoa_comparison.csv
-|   Initial QAOA comparison output
+|-- initial_prototype/
+|   |   Earlier exploratory five-waypoint prototype
+|   |
+|   |-- main.py
+|   |   Initial classical five-waypoint routing prototype
+|   |
+|   |-- qubo_model.py
+|   |   Initial waypoint-selection QUBO prototype
+|   |
+|   |-- qaoa_solver.py
+|   |   Initial QAOA waypoint-selection experiment
+|   |
+|   |-- best_route.png
+|   |   Initial classical route visualization
+|   |
+|   |-- results.csv
+|   |   Classical experiment output
+|   |
+|   `-- qaoa_comparison.csv
+|       Initial QAOA comparison output
 |
 |-- distributed_routing/
+|   |   Current routing formulation and implementation
 |   |
 |   |-- classical_solver.py
 |   |   Exact routing baseline for the teaching instance
@@ -487,7 +491,7 @@ quantum-drone-routing/
 `-- README.md
 ```
 
-The original files are intentionally retained because they document the progression from waypoint selection toward direct route optimization.
+The `initial_prototype/` files are intentionally retained because they document the progression from waypoint selection toward direct route optimization.
 
 ---
 
@@ -571,7 +575,7 @@ Activate the project Python environment first.
 Run the original classical routing prototype:
 
 ```bash
-python main.py
+python initial_prototype/main.py
 ```
 
 Run the direct-routing classical baseline:
