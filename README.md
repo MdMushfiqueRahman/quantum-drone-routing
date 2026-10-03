@@ -6,7 +6,7 @@ This project investigates how a drone can choose and order mission waypoints whi
 
 The project is being developed as a proof-of-concept for UAV mission planning and future integration with simulated and physical autonomous systems.
 
-> **Current status:** Classical routing, direct routing QUBO formulation, exact QUBO verification, and QAOA `p=1` / `p=2` experiments are working. The next phase is solver-to-UAV simulation integration.
+> **Current status:** Classical routing, direct routing QUBO formulation, exact QUBO verification, and QAOA `p=1` / `p=2` experiments are working. A clean classical solver interface for future UAV / SITL integration is now implemented. The next phase is connecting this interface to ArduPilot / ArduCopter SITL.
 
 ---
 
@@ -423,6 +423,30 @@ This keeps experimental reporting transparent and avoids treating an invalid bin
 
 ---
 
+## Classical Solver Interface
+
+`distributed_routing/solver_interface.py` provides a clean mission-planning entry point for future UAV / SITL code.
+
+- **Input:** energy and time budgets.
+- Uses the verified exact classical routing baseline to search all feasible routes.
+- Returns **one deterministic optimal route**.
+- **Tie-breaking** among equal-reward routes: lower energy, then lower time, then lexicographic route order.
+- Independently validates route structure, energy, and time (recomputed from the route) before returning the mission.
+
+The interface intentionally uses the verified classical baseline rather than QAOA; QAOA remains an experimental optimization backend and is not used for UAV control.
+
+Default teaching-instance output:
+
+```text
+Route: 0 -> B -> C -> 0
+Reward: 16
+Energy: 12 Wh
+Time: 10 min
+Valid: True
+```
+
+---
+
 ## Repository Structure
 
 ```text
@@ -454,8 +478,11 @@ quantum-drone-routing/
 |   |-- qubo_model.py
 |   |   23-variable direct routing QUBO and exact verifier
 |   |
-|   `-- qaoa_solver.py
-|       Reduced 16-qubit QAOA experiment
+|   |-- qaoa_solver.py
+|   |   Reduced 16-qubit QAOA experiment
+|   |
+|   `-- solver_interface.py
+|       Clean mission-planning interface that returns one deterministic validated route
 |
 `-- README.md
 ```
@@ -480,6 +507,7 @@ The original files are intentionally retained because they document the progress
 | QAOA `p=1` experiment | Complete |
 | QAOA `p=2` experiment | Complete |
 | Mission-vs-QUBO validation | Complete |
+| Clean classical solver interface | Complete |
 | ArduPilot SITL integration | Planned |
 | Solver-to-UAV mission interface | Planned |
 | Real energy-model calibration | Planned |
@@ -582,7 +610,9 @@ The project is moving toward several larger questions:
 
 ## Next Steps
 
-The immediate development direction is:
+The clean classical solver interface is now implemented. The immediate next integration milestone is **ArduPilot / ArduCopter SITL**, consuming the validated ordered route produced by `solve_mission()`.
+
+The broader development direction is:
 
 ```text
 Validated optimizer
@@ -605,9 +635,7 @@ Larger and multi-UAV routing problems
 
 Planned work includes:
 
-- Create a clean solver API:
-  `waypoints + energy/time budgets -> validated ordered route`
-- Connect the solver to ArduPilot/ArduCopter SITL
+- Connect the implemented solver interface (`solve_mission`: `energy/time budgets -> validated ordered route`) to ArduPilot/ArduCopter SITL
 - Visualize optimized missions in simulation
 - Replace synthetic energy values with calibrated UAV measurements
 - Test larger routing instances
