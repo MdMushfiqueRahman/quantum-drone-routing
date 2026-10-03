@@ -9,7 +9,7 @@ import itertools
 
 # Settings
 
-QAOA_REPS = 1          # number of QAOA layers (p); set to 2 later if desired
+QAOA_REPS = 2          # number of QAOA layers (p); set to 2 later if desired
 QAOA_SHOTS = 1024
 SEED = 42
 COBYLA_MAXITER = 30
@@ -303,6 +303,25 @@ def constraints_report(state):
     }
 
 
+def energy_equality_ok(state):
+    return total_energy_before_slack(state) + energy_slack_value(state) == energy_budget
+
+
+def time_equality_ok(state):
+    return total_time_before_slack(state) + time_slack_value(state) == time_budget
+
+
+def qubo_constraints_valid(state):
+    """True only when the slack bits also satisfy the QUBO equality constraints,
+    which is stricter than being physically mission-feasible."""
+    return (
+        route_penalty(state) == 0
+        and loop_penalty(state) == 0
+        and energy_equality_ok(state)
+        and time_equality_ok(state)
+    )
+
+
 # Bitstring mapping
 # Qiskit returns measurement bitstrings where the RIGHTMOST character is
 # qubit 0 and the LEFTMOST character is qubit (n-1). We measured qubit i into
@@ -504,6 +523,7 @@ def analyze_samples(counts, optimum_bitstrings):
     and measure feasible/optimal sample fractions."""
     total_shots = sum(counts.values())
     feasible_shots = 0
+    qubo_feasible_shots = 0
     optimal_shots = 0
 
     best = None
@@ -514,6 +534,9 @@ def analyze_samples(counts, optimum_bitstrings):
 
         if bitstring in optimum_bitstrings:
             optimal_shots += count
+
+        if qubo_constraints_valid(state):
+            qubo_feasible_shots += count
 
         if not report["feasible"]:
             continue
@@ -546,6 +569,7 @@ def analyze_samples(counts, optimum_bitstrings):
     return {
         "total_shots": total_shots,
         "feasible_shots": feasible_shots,
+        "qubo_feasible_shots": qubo_feasible_shots,
         "optimal_shots": optimal_shots,
         "best_feasible": best,
     }
@@ -606,19 +630,24 @@ def main():
         print("Energy slack:", best["energy_slack"])
         print("Time slack:", best["time_slack"])
         print("QUBO score:", best["qubo_score"])
-        print("Feasible:", "Yes")
+        best_state = bitstring_to_state(best["bitstring"])
+        print("Mission feasible:", "Yes")
+        print("QUBO constraints satisfied:",
+              "Yes" if qubo_constraints_valid(best_state) else "No")
         print("Same route/reward as exact mission:", "Yes" if matches else "No")
         print("Exact QUBO optimum sampled:",
               "Yes" if analysis["optimal_shots"] > 0 else "No")
 
     # Metrics (honest; derived from real samples)
     total_shots = analysis["total_shots"]
-    feasible_fraction = analysis["feasible_shots"] / total_shots if total_shots else 0.0
+    mission_feasible_fraction = analysis["feasible_shots"] / total_shots if total_shots else 0.0
+    qubo_feasible_fraction = analysis["qubo_feasible_shots"] / total_shots if total_shots else 0.0
     optimal_fraction = analysis["optimal_shots"] / total_shots if total_shots else 0.0
 
     print("\nSAMPLE METRICS")
     print("Total shots:", total_shots)
-    print("Feasible-sample fraction:", round(feasible_fraction, 4))
+    print("Mission-feasible sample fraction:", round(mission_feasible_fraction, 4))
+    print("QUBO-feasible sample fraction:", round(qubo_feasible_fraction, 4))
     print("Optimal-sample fraction:", round(optimal_fraction, 4))
     print("Cost-function evaluations:", result.cost_function_evals)
     print("QAOA optimizer time (s):", round(result.optimizer_time, 4))
